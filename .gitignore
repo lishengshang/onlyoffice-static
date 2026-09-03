@@ -1,3 +1,6 @@
 /.idea/
 **/.DS_Store
 *.js.map
+
+# CF Pages 单文件 25MiB 限制：x2t.wasm 以 brotli 形态(x2t.wasm.br)入库，原文件仅本地保留
+9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm

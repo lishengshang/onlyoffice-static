@@ -1,0 +1,11 @@
+# Cloudflare Pages 响应头：x2t.wasm 以 brotli 形态存储，必须声明编码才 能被浏览器解压
+# 同时覆盖原始路径与 .br 路径（_headers 的匹配基准在 rewrite 前后行为以实测为准）
+/9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm
+  Content-Type: application/wasm
+  Content-Encoding: br
+  Cache-Control: public, max-age=31536000, immutable
+
+/9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm.br
+  Content-Type: application/wasm
+  Content-Encoding: br
+  Cache-Control: public, max-age=31536000, immutable

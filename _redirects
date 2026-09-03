@@ -1,0 +1,3 @@
+# Cloudflare Pages 重写规则：x2t.wasm 41MB 超过单文件 25MiB 限制，
+# 以 brotli 形态 x2t.wasm.br 入库，此处 200-rewrite 保持原 URL 不变
+/9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm    /9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm.br    200

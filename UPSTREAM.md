@@ -17,7 +17,7 @@
 
 ## 以后升级引擎的三条路径
 
-1. **同步上游**：盯 fernfei 的新产物，下载新版 tarball 替换 `9.3.0.x-<hash>/` 目录，改 onlyoffice.html 的版本引用
+1. **同步上游**：盯 fernfei 的新产物，下载新版 tarball 替换 `9.3.0.x-<hash>/` 目录（壳层经 `__ENGINE_VENDOR__` 自动跟随引擎目录，无需手改版本引用）
 2. **自己编译**：sdkjs 用官方 `build/build.py`（纯拼接，只需 Python 3）；web-apps 用 build/ 下 grunt；
    x2t.wasm 用 https://github.com/cryptpad/onlyoffice-x2t-wasm 的 Docker 管线
 3. **换集成方案**：ranuts/document 或 electroluxcode/onlyoffice-web-comp（均基于 OnlyOffice 静态 SDK）

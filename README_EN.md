@@ -62,7 +62,7 @@ PDF editing
 
 ## Integrating into your own app
 
-Copy the whole repo (`onlyoffice.html`, the `9.3.0.133-*` build directory, `assets/`, `blank/`) into your frontend's static folder, embed `onlyoffice.html` in an iframe, then inject documents and retrieve file streams over postMessage.
+Copy the build output (`shell/dist/`) into your frontend's static folder, embed the `/embed` route in an iframe, then inject documents and retrieve file streams over postMessage.
 
 - **[Integration guide](docs/使用文档.md)** (Chinese): the three ways to integrate, docConfig options, the message protocol, saving file streams, rename, save-as, the Automation API connector, plus a Vue component wrapper.
 - **[How the file stream works](docs/集成教程-文件流提取.md)** (Chinese): the offline build has no save callback — this explains how the bytes are pulled out of `x2t.downloadFile`.
@@ -76,11 +76,10 @@ onlyoffice-static/
 ├── assets/               # favicon, blank PDF and other engine-contract static assets
 ├── blank/                # blank templates for creating new documents
 ├── docs/                 # documentation and screenshots
-├── shell/                # shell project: Vue 3 + TS SPA (home /, editor /edit/:id)
+├── shell/                # shell project: Vue 3 + TS SPA (home /, editor /edit/:id, embed /embed)
 │   └── dist/             # build output = complete deployable site
 ├── _headers / _redirects # Cloudflare Pages caching and SPA fallback rules (ready, not yet enabled)
-├── precompress.sh        # static asset precompression script (for Nginx brotli_static)
-└── onlyoffice.html       # integration entry (iframe + postMessage, protocol contract)
+└── precompress.sh        # static asset precompression script (for Nginx brotli_static)
 ```
 
 ## Deployment

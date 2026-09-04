@@ -62,7 +62,7 @@ PDF 编辑
 
 ## 集成到自己的系统
 
-把仓库整体（`onlyoffice.html`、产物目录 `9.3.0.133-*`、`assets/`、`blank/`）放到前端工程的静态目录下，用 iframe 嵌入 `onlyoffice.html`，通过 postMessage 注入文档、取回文件流。
+把仓库整体（`shell/dist/` 构建产物）放到前端工程的静态目录下，用 iframe 嵌入 `/embed` 路由，通过 postMessage 注入文档、取回文件流。
 
 - **[使用文档](docs/使用文档.md)**：三种集成方式、docConfig 配置、消息协议、保存文件流、文件名与重命名、另存为、连接器（Automation API），以及一份 Vue 组件封装。
 - **[文件流提取原理](docs/集成教程-文件流提取.md)**：离线版没有保存回调，这篇讲清楚字节是怎么从 `x2t.downloadFile` 里取出来的。
@@ -76,11 +76,10 @@ onlyoffice-static/
 ├── assets/               # favicon、空白 PDF 等静态资源（引擎契约路径）
 ├── blank/                # 新建文档用的空白模板
 ├── docs/                 # 文档与截图
-├── shell/                # 壳层工程：Vue 3 + TS SPA（主页 /、编辑器 /edit/:id）
+├── shell/                # 壳层工程：Vue 3 + TS SPA（主页 /、编辑器 /edit/:id、集成 /embed）
 │   └── dist/             # 构建产物 = 完整可部署站点
 ├── _headers / _redirects # Cloudflare Pages 缓存与 SPA 回退规则（配置已就绪，暂未启用）
-├── precompress.sh        # 静态资源预压缩脚本（Nginx brotli_static 用）
-└── onlyoffice.html       # 集成入口（iframe + postMessage，协议契约）
+└── precompress.sh        # 静态资源预压缩脚本（Nginx brotli_static 用）
 ```
 
 ## 部署

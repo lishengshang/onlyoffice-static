@@ -86,7 +86,16 @@ export class DirectEditorBridge {
             onAppReady: () => callbacks.onAppReady(),
             onDocumentReady: () => callbacks.onDocumentReady(),
             onDownloadAs: () => {}, // 导出走文件流劫持，屏蔽 DocsAPI 默认下载行为
-            onError: (event) => callbacks.onError(`编辑器错误: ${eventNameOf(event)}`),
+            onError: (event) => {
+                // 官方形状：data = { errorCode, errorDescription }（见 docs/参考-DocsAPI事件形状.md）；
+                // 兼容兜底：非预期形状时整体 JSON 透传
+                const data = event?.data as { errorCode?: unknown; errorDescription?: string } | undefined
+                const message =
+                    data && typeof data === 'object' && data.errorDescription
+                        ? `${data.errorDescription}（code ${data.errorCode}）`
+                        : eventNameOf(event)
+                callbacks.onError(`编辑器错误: ${message}`)
+            },
             onRequestClose: () => callbacks.onRequestClose(),
             onDocumentStateChange: (event) => callbacks.onStateChange(!!event?.data),
             onMetaChange: (event) => {
@@ -99,6 +108,8 @@ export class DirectEditorBridge {
                 this.docEditor?.setMetaData?.({ title })
                 callbacks.onRename(title)
             },
+            // 官方形状：data = { url, title, fileType }（见 docs/参考-DocsAPI事件形状.md）；
+            // url/fileUrl 双兼容为防御分支，官方无 fileUrl 字段
             onRequestSaveAs: (event) => {
                 const data = event?.data
                 const url =

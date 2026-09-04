@@ -20,9 +20,13 @@
 /onlyoffice.html
   Cache-Control: no-cache
 
-# /assets/ 混有 Vite 带 hash 产物与 favicon/empty.pdf 等非 hash 资源：短缓存
+# /assets/ 是引擎契约静态文件（favicon、empty*.pdf），无 hash：短缓存
 /assets/*
   Cache-Control: max-age=3600
+
+# /app/ 是 Vite 带 hash 的应用产物（内容寻址）：长缓存
+/app/*
+  Cache-Control: public, max-age=31536000, immutable
 
 # 引擎版本目录：内容寻址（目录名含版本哈希），长缓存
 /9.3.0.133-24e34b4f401d86dfb31def637358e2fa/*

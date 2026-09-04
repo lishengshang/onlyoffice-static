@@ -43,6 +43,9 @@ export default defineConfig({
     plugins: [vue(), mountRepoStatic()],
     build: {
         outDir: 'dist',
+        // 带 hash 的应用产物输出到 /app/，与引擎静态文件 /assets/ 分离：
+        // /app/* 内容寻址可上 immutable 长缓存，/assets/* 保持短缓存
+        assetsDir: 'app',
         // 不清空重建：CF 构建机每次从全新 checkout 出发（dist 天然干净）；
         // 本地重建时合并覆盖即可，避免每次删除上万个产物文件
         emptyOutDir: false,

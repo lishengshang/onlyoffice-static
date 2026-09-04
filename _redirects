@@ -2,7 +2,8 @@
 # 以 brotli 形态 x2t.wasm.br 入库，此处 200-rewrite 保持原 URL 不变
 /9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm    /9.3.0.133-24e34b4f401d86dfb31def637358e2fa/vendor/sdkjs/common/wasm/x2t/x2t.wasm.br    200
 
-# SPA history 路由：/edit/:id 无对应静态资产，200-rewrite 到入口 HTML
+# SPA history 路由：/edit/:id 与 /embed 无对应静态资产，200-rewrite 到入口 HTML
 # 注意：CF Pages 的 _redirects 优先于静态资产匹配（redirects are always followed），
 # 不能用 /* 兜底，否则引擎文件请求也会被重写到 index.html
 /edit/*    /index.html    200
+/embed/*    /index.html    200

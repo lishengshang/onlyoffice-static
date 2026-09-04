@@ -123,3 +123,48 @@ export function buildOnlyofficeConfig(options: {
     }
     return config
 }
+
+// ---------- 对外集成（/embed 路由）：配置补全，移植自 onlyoffice.html normalizeConfig ----------
+
+/** 从文档 URL 尾部推断扩展名（去掉 query/hash） */
+export function fileTypeFromUrl(url: string | undefined): string {
+    if (!url) return ''
+    const clean = url.split('?')[0].split('#')[0]
+    const dot = clean.lastIndexOf('.')
+    return dot > -1 ? clean.substring(dot + 1).toLowerCase() : ''
+}
+
+function hashOf(value: string): string {
+    let hash = 0
+    for (let index = 0; index < value.length; index += 1) {
+        hash = (hash << 5) - hash + value.charCodeAt(index)
+        hash |= 0
+    }
+    return String(Math.abs(hash))
+}
+
+/**
+ * 外部系统注入的 docConfig 往往只给 url 或 fileType，其余字段自动补全。
+ * 与原 onlyoffice.html 的 normalizeConfig 行为一致（pdf 扩展名集合统一采用本文件更全的判定）。
+ */
+export function normalizeEmbedConfig(docConfig: Record<string, unknown>): OnlyofficeConfig {
+    const config = { ...docConfig } as Record<string, unknown>
+    const document = { ...((config.document as Record<string, unknown>) ?? {}) }
+    if (!document.fileType) {
+        document.fileType = fileTypeFromUrl(document.url as string | undefined)
+    }
+    if (!config.documentType) {
+        config.documentType = documentTypeOf(String(document.fileType ?? ''))
+    }
+    if (!document.key) {
+        document.key = 'doc-' + hashOf(`${document.url || ''}|${document.title || ''}`)
+    }
+    if (!document.title) {
+        document.title = `文档.${document.fileType || 'docx'}`
+    }
+    if (!document.directUrl && document.url) {
+        document.directUrl = document.url
+    }
+    config.document = document
+    return config as unknown as OnlyofficeConfig
+}

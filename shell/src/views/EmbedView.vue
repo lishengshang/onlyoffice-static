@@ -41,20 +41,46 @@ function postSaveError(requestId: unknown, error: unknown): void {
 }
 
 // 引擎就绪前置：等 /embed 页面自身 load 完成再创建 DocsAPI（页面加载中注入 iframe 行为未定义）。
-// 已知上游缺陷（无法从壳层修复，自建构建管线时在引擎侧解决）：
+// 已知上游缺陷（根因在引擎侧，壳层通过预热规避）：
 // 嵌套 iframe + 冷缓存时，引擎的 url 文档转换可能与 sdk-all.js（完整版）中的字体表填充
 // （AscFonts.g_font_infos，由 __fonts_files/__fonts_infos 构建）赛跑——min 版缺这段填充代码，
 // 完整版 14MB 加载执行慢半拍时转换先触发，fetchFonts 内 g_font_infos 为 undefined 报
 // forEach TypeError（原 onlyoffice.html 同样存在，非本路由回归；EditorView 直挂不受影响）。
-// 规避：二次访问（资源已缓存）或宿主延迟数秒发送 config 可稳定成功。
+// 缓解：挂载即预取引擎大资源进 HTTP 缓存（warmEngineResources），创建编辑器前等待完成——
+// 等效"二次访问"，iframe 内加载全部命中缓存，转换必然晚于字体表填充，竞态窗口闭合。
 async function settleBeforeCreate(): Promise<void> {
     if (document.readyState !== 'complete') {
         await new Promise<void>((resolve) => window.addEventListener('load', () => resolve(), { once: true }))
     }
 }
 
+// 引擎大资源预热（结果按页面生命周期缓存，多次 loadOnlyoffice 不重复拉取）。
+// 预取失败不阻断：仅回退到冷缓存行为（与旧版一致），控制台留痕便于排查
+let engineWarm: Promise<boolean> | null = null
+
+function warmEngineResources(): Promise<boolean> {
+    engineWarm ??= Promise.all(
+        [
+            'sdkjs/word/sdk-all.js',
+            'sdkjs/word/sdk-all-min.js',
+            'sdkjs/common/AllFonts.js',
+            'sdkjs/common/wasm/x2t/x2t_helper.js',
+            'sdkjs/common/wasm/x2t/x2t.js',
+            'sdkjs/common/wasm/x2t/x2t.wasm',
+        ].map((p) =>
+            fetch(`${__ENGINE_VENDOR__}/${p}`, { cache: 'force-cache' })
+                .then((r) => r.ok)
+                .catch(() => false),
+        ),
+    ).then((rs) => rs.every(Boolean))
+    return engineWarm
+}
+
 async function loadOnlyoffice(docConfig: Record<string, unknown>, openBuffer?: ArrayBuffer): Promise<void> {
     await settleBeforeCreate()
+    if (!(await warmEngineResources())) {
+        console.warn('[embed] 引擎大资源预热未全部成功，回退冷缓存行为')
+    }
     const mount = mountEl.value
     if (!mount) throw new Error('挂载点未就绪')
     bridge?.destroy()
@@ -185,6 +211,8 @@ function handleMessage(event: MessageEvent): void {
 }
 
 onMounted(() => {
+    // 预热不等待宿主 config：宿主延迟注入的每一秒都用来并行拉资源
+    void warmEngineResources()
     // URL 参数方式：?docConfig={json}（与 onlyoffice.html 兼容）
     const raw = new URLSearchParams(window.location.search).get('docConfig')
     if (raw) {

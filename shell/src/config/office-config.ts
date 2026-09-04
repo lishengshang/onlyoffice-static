@@ -11,6 +11,8 @@ export interface OnlyofficeDocumentConfig {
     fileType: string
     key: string
     permissions: { edit: boolean; download: boolean; print: boolean }
+    /** /embed 场景：DocsAPI 要求的直连地址（normalizeEmbedConfig 由 url 补全） */
+    directUrl?: string
     /** 仅 pdf */
     isForm?: boolean
     localOpenFromBinary?: boolean

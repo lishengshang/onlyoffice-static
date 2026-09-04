@@ -14,7 +14,6 @@ import { useRecentStore } from './recent'
 import { useToastStore } from './toast'
 
 interface PendingSave {
-    requestId: string
     resolve: (blob: Blob) => void
     reject: (err: Error) => void
 }
@@ -24,8 +23,7 @@ interface Session {
     bridge: DirectEditorBridge | null
     frame: HTMLIFrameElement | null
     blobUrl: string
-    saveSeq: number
-    /** 单槽：同一时刻至多一个进行中的保存请求 */
+    /** 单槽：同一时刻至多一个进行中的保存请求（引擎文件流不带请求标识，靠槽位匹配） */
     pending: PendingSave | null
     pendingOpenBuffer: ArrayBuffer | null
     documentReady: boolean
@@ -51,7 +49,6 @@ export const useEditorStore = defineStore('editor', () => {
             bridge: null,
             frame: null,
             blobUrl: record.blob ? URL.createObjectURL(record.blob) : '',
-            saveSeq: 0,
             pending: null,
             pendingOpenBuffer: null,
             documentReady: false,
@@ -142,10 +139,8 @@ export const useEditorStore = defineStore('editor', () => {
         const s = session
         if (!s || !s.bridge) return Promise.reject(new Error('编辑器未打开'))
         if (!s.documentReady) return Promise.reject(new Error('编辑器尚未就绪'))
-        const requestId = 'save-' + ++s.saveSeq
         return new Promise<Blob>((resolve, reject) => {
             const pending: PendingSave = {
-                requestId,
                 resolve: (blob) => {
                     clearTimeout(timer)
                     resolve(blob)

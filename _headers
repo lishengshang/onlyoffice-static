@@ -17,7 +17,8 @@
 /index.html
   Cache-Control: no-cache
 
-/onlyoffice.html
+# /embed 是对外集成路由（SPA 无静态资产），HTML 壳需重新验证
+/embed
   Cache-Control: no-cache
 
 # /assets/ 是引擎契约静态文件（favicon、empty*.pdf），无 hash：短缓存

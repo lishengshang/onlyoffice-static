@@ -3,7 +3,7 @@
 //   编辑器仅在点击"帮助"按钮时按需加载，中文壳层用不到，且 CF Pages 部署有 2 万文件上限）
 // - blank/、LICENSE.txt 整体拷贝；docs/ 只留在仓库供 GitHub 阅读，不进部署产物
 // - assets/ 与 dist/assets 合并（Vite 产物输出在 dist/app/，互不混淆）
-// - onlyoffice.html 逐字节原样复制（postMessage 协议契约，不进打包器）
+// - 对外集成协议已迁入壳层 /embed 路由（EmbedView），onlyoffice.html 已删除
 // - _headers / _redirects 是 Cloudflare Pages 配置，必须位于部署根
 // - 引擎目录按版本目录名做 sentinel 增量拷贝：同名目录且排除规则未变则跳过，
 //   CF 全新 checkout 不受影响，本地重建从 ~6 分钟降到秒级
@@ -92,10 +92,16 @@ if (existsSync(staleDocs)) {
 // 3. assets/ 合并进 dist/assets（引擎契约静态文件：favicon、empty*.pdf）
 copyIn(join(repoRoot, 'assets'), join(dist, 'assets'))
 
-// 4. 协议契约文件与 Cloudflare 配置，逐字节复制
-for (const name of ['onlyoffice.html', '_headers', '_redirects']) {
+// 4. Cloudflare Pages 配置，逐字节复制
+for (const name of ['_headers', '_redirects']) {
     cpSync(join(repoRoot, name), join(dist, name))
     console.log(`copied  ${name}（原样）`)
+}
+// onlyoffice.html 已删除：对外协议由壳层 /embed 路由承接，清理 dist 残留
+const staleEntry = join(dist, 'onlyoffice.html')
+if (existsSync(staleEntry)) {
+    rmSync(staleEntry)
+    console.log('removed dist/onlyoffice.html（历史残留）')
 }
 
 console.log('copy-static 完成')

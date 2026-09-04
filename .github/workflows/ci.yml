@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shell
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 引擎产物约 2.6k 文件，浅克隆加速检出
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shell/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      # 完整构建含 copy-static 引擎拷贝（约 660MB），即端到端产物验证
+      - run: npm run build

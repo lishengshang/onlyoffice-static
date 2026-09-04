@@ -1,0 +1,30 @@
+/* 基础层：设计变量与全局重置（组件样式在各 SFC 的 scoped style 中） */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --border: #e4e7ec;
+    --text: #1f2329;
+    --text-2: #646a73;
+    --text-3: #8f959e;
+    --accent: #245bdb;
+    --accent-hover: #1c4cba;
+    --word: #2b579a;
+    --cell: #217346;
+    --slide: #c43e1c;
+    --pdf: #b3261e;
+}
+
+body {
+    font-family:
+        -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}

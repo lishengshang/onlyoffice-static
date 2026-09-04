@@ -13,7 +13,7 @@ export default tseslint.config(
     {
         files: ['**/*.vue'],
         languageOptions: {
-            globals: globals.browser,
+            globals: { ...globals.browser, __ENGINE_VENDOR__: 'readonly' },
             parserOptions: { parser: tseslint.parser },
         },
     },
@@ -26,6 +26,11 @@ export default tseslint.config(
                 { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
             ],
         },
+    },
+    {
+        // tests/ 冒烟脚本运行在 Node（脚本不进 TS 管线，仅 lint）
+        files: ['tests/**/*.mjs'],
+        languageOptions: { globals: { ...globals.browser, ...globals.node } },
     },
     configPrettier,
 )

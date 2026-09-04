@@ -10,3 +10,4 @@
 # shell/ Vite 壳工程
 shell/node_modules/
 shell/dist/
+shell/tests/artifacts/

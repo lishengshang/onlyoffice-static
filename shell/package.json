@@ -13,7 +13,12 @@
         "preview": "vite preview",
         "typecheck": "vue-tsc --noEmit",
         "lint": "eslint .",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "smoke": "node tests/smoke-test.mjs",
+        "smoke:embed": "node tests/embed-smoke.mjs",
+        "smoke:deeplink": "node tests/deep-link-save-test.mjs"
     },
     "dependencies": {
         "@vueuse/core": "^13.0.0",
@@ -35,6 +40,7 @@
         "typescript": "~5.9.0",
         "typescript-eslint": "^8.0.0",
         "vite": "^7.1.0",
+        "vitest": "^5.0.0",
         "vue-tsc": "^3.0.0"
     }
 }

@@ -40,10 +40,21 @@ function postSaveError(requestId: unknown, error: unknown): void {
     postToParent({ type: 'onlyoffice-saved', requestId, ok: false, error: errorMessageOf(error) })
 }
 
-async function loadOnlyoffice(
-    docConfig: Record<string, unknown>,
-    openBuffer?: ArrayBuffer,
-): Promise<void> {
+// 引擎就绪前置：等 /embed 页面自身 load 完成再创建 DocsAPI（页面加载中注入 iframe 行为未定义）。
+// 已知上游缺陷（无法从壳层修复，自建构建管线时在引擎侧解决）：
+// 嵌套 iframe + 冷缓存时，引擎的 url 文档转换可能与 sdk-all.js（完整版）中的字体表填充
+// （AscFonts.g_font_infos，由 __fonts_files/__fonts_infos 构建）赛跑——min 版缺这段填充代码，
+// 完整版 14MB 加载执行慢半拍时转换先触发，fetchFonts 内 g_font_infos 为 undefined 报
+// forEach TypeError（原 onlyoffice.html 同样存在，非本路由回归；EditorView 直挂不受影响）。
+// 规避：二次访问（资源已缓存）或宿主延迟数秒发送 config 可稳定成功。
+async function settleBeforeCreate(): Promise<void> {
+    if (document.readyState !== 'complete') {
+        await new Promise<void>((resolve) => window.addEventListener('load', () => resolve(), { once: true }))
+    }
+}
+
+async function loadOnlyoffice(docConfig: Record<string, unknown>, openBuffer?: ArrayBuffer): Promise<void> {
+    await settleBeforeCreate()
     const mount = mountEl.value
     if (!mount) throw new Error('挂载点未就绪')
     bridge?.destroy()

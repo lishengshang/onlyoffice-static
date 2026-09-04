@@ -232,7 +232,8 @@ export const useEditorStore = defineStore('editor', () => {
         const msg = parseFileStream(event.data)
         if (!msg) return
 
-        // 单槽匹配：有进行中的保存请求则归它，否则是编辑器自动保存
+        // 单槽匹配：有进行中的保存请求则归它，否则是编辑器自动保存——
+        // 自动保存静默持久化（顶栏修改点熄灭已是反馈），避免高频 toast 噪音
         const pending = s.pending
         s.pending = null
         const blob = new Blob([msg.buffer])
@@ -240,7 +241,6 @@ export const useEditorStore = defineStore('editor', () => {
             pending.resolve(blob)
         } else {
             await persistBlob(blob)
-            toast.show('已自动保存')
         }
     }
 

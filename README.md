@@ -65,13 +65,14 @@ PDF 编辑
 ## 目录结构
 
 ```
-OnlyofficePersonal/
-├── 9.3.0.134-*/          # ONLYOFFICE 编译产物（web-apps / sdkjs / fonts）
+onlyoffice-static/
+├── 9.3.0.133-*/          # ONLYOFFICE 编译产物（web-apps / sdkjs / fonts）
 ├── assets/               # favicon、空白 PDF 等静态资源
 ├── blank/                # 新建文档用的空白模板
 ├── docs/                 # 文档与截图
-├── office.html           # 演示入口（独立使用）
-└── onlyoffice.html       # 集成入口（iframe + postMessage）
+├── shell/                # 壳层工程：Vue 3 + TS SPA（主页 /、编辑器 /edit/:id）
+├── _headers / _redirects # Cloudflare Pages 缓存与 SPA 回退规则
+└── onlyoffice.html       # 集成入口（iframe + postMessage，协议契约）
 ```
 
 ## 许可证

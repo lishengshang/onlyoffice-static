@@ -64,13 +64,14 @@ Copy the whole repo (`onlyoffice.html`, the `9.3.0.134-*` build directory, `asse
 ## Project structure
 
 ```
-OnlyofficePersonal/
-├── 9.3.0.134-*/          # ONLYOFFICE build (web-apps / sdkjs / fonts)
+onlyoffice-static/
+├── 9.3.0.133-*/          # ONLYOFFICE build (web-apps / sdkjs / fonts)
 ├── assets/               # favicon, blank PDF and other static assets
 ├── blank/                # blank templates for creating new documents
 ├── docs/                 # documentation and screenshots
-├── office.html           # demo entry (standalone use)
-└── onlyoffice.html       # integration entry (iframe + postMessage)
+├── shell/                # shell project: Vue 3 + TS SPA (home /, editor /edit/:id)
+├── _headers / _redirects # Cloudflare Pages caching and SPA fallback rules
+└── onlyoffice.html       # integration entry (iframe + postMessage, protocol contract)
 ```
 
 ## License

@@ -60,6 +60,7 @@ function renameTitleOf(event: DocsApiEvent | undefined): string {
 
 export class DirectEditorBridge {
     private docEditor: DocsApiEditor | null = null
+    private frameObserver: MutationObserver | null = null
 
     async create(
         mount: HTMLElement,
@@ -128,19 +129,20 @@ export class DirectEditorBridge {
         this.watchMountIframe(mount, callbacks)
     }
 
-    // DocsAPI 会在挂载点内自建 iframe；轮询发现后回填给 store（消息来源过滤依赖它）
+    // DocsAPI 会在挂载点内自建 iframe；MutationObserver 在占位符被替换的瞬间回填给 store
+    // （消息来源过滤依赖它；轮询方案有 5 秒静默失败窗口，DOM 事件无此问题）
     private watchMountIframe(mount: HTMLElement, callbacks: DirectEditorCallbacks): void {
-        let attempts = 0
-        const timer = setInterval(() => {
-            attempts += 1
+        this.frameObserver?.disconnect()
+        const observer = new MutationObserver(() => {
             const frame = mount.querySelector('iframe')
             if (frame instanceof HTMLIFrameElement) {
-                clearInterval(timer)
+                observer.disconnect()
+                this.frameObserver = null
                 callbacks.onFrameAttached(frame)
-            } else if (attempts > 50) {
-                clearInterval(timer)
             }
-        }, 100)
+        })
+        observer.observe(mount, { childList: true, subtree: true })
+        this.frameObserver = observer
     }
 
     /** 触发导出；结果经 onlyoffice-file-stream 消息回到 store */
@@ -157,6 +159,8 @@ export class DirectEditorBridge {
     }
 
     destroy(): void {
+        this.frameObserver?.disconnect()
+        this.frameObserver = null
         if (!this.docEditor) return
         try {
             this.docEditor.destroyEditor()

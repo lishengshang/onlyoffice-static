@@ -1,43 +1,21 @@
-// postMessage 协议类型：壳层 <-> onlyoffice.html（协议契约文件，位于仓库根）
-// 契约实现见仓库根 onlyoffice.html；改动需双向对齐
-import type { OnlyofficeConfig } from '../config/office-config'
+// 直连协议类型：中转层（onlyoffice.html）去除后，壳层与编辑器 iframe 之间
+// 仅剩一类 postMessage —— 引擎 x2t_helper.js 抛出的文件流（其余全部走 DocsAPI 事件回调）
+// 注意：x2t_helper 会同时投递 window.parent 与 window.top；2 窗口架构下两者都是壳层，
+// 因 parent === top 只投递一次，不会重复
 
-/** 壳层 -> onlyoffice.html */
-export type ShellToFrameMessage =
-    | { type: 'onlyoffice-config'; docConfig: OnlyofficeConfig; openBuffer?: ArrayBuffer }
-    | { type: 'onlyoffice-save'; requestId: string; format: string }
+/** 编辑器 iframe -> 壳层：导出文件流（保存请求结果或编辑器自动保存） */
+export interface FileStreamMessage {
+    type: 'onlyoffice-file-stream'
+    fileName: string
+    fileType: string
+    buffer: ArrayBuffer
+}
 
-/** onlyoffice.html -> 壳层 */
-export type FrameToShellMessage =
-    | { type: 'onlyoffice-ready' }
-    | { type: 'onlyoffice-document-ready' }
-    | { type: 'onlyoffice-open-error'; error?: string }
-    | {
-          type: 'onlyoffice-saved'
-          /** 对应 onlyoffice-save 的 requestId；自动保存流没有 */
-          requestId?: string
-          ok: boolean
-          buffer?: ArrayBuffer
-          error?: string
-          fileType?: string
-          fileName?: string
-      }
-    | {
-          type: 'onlyoffice-saveas'
-          ok: boolean
-          buffer?: ArrayBuffer
-          fileType?: string
-          error?: string
-      }
-    | { type: 'onlyoffice-rename'; title: string }
-    | { type: 'onlyoffice-state-change'; modified: boolean }
-    | { type: 'onlyoffice-request-close' }
-
-/** 收窄未知 postMessage 数据；非 onlyoffice-* 消息返回 null */
-export function parseFrameMessage(data: unknown): FrameToShellMessage | null {
+/** 收窄未知 postMessage 数据；非 onlyoffice-file-stream 返回 null */
+export function parseFileStream(data: unknown): FileStreamMessage | null {
     if (!data || typeof data !== 'object') return null
-    const type = (data as { type?: unknown }).type
-    return typeof type === 'string' && type.startsWith('onlyoffice-')
-        ? (data as FrameToShellMessage)
-        : null
+    const record = data as { type?: unknown; buffer?: unknown }
+    if (record.type !== 'onlyoffice-file-stream') return null
+    if (!(record.buffer instanceof ArrayBuffer)) return null
+    return data as FileStreamMessage
 }

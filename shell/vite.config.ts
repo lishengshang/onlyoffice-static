@@ -13,15 +13,23 @@ import { defineConfig, type Plugin } from 'vite'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const ENGINE_DIR = /^9\.\d+\.\d+\.\d+-[0-9a-f]+$/
 
+// 引擎 vendor 绝对路径（如 /9.3.0.133-<hash>/vendor），注入 __ENGINE_VENDOR__
+// 供壳层直连 DocsAPI（api.js）；引擎换目录时自动跟随，无需手改任何引用
+const engineDirs = readdirSync(repoRoot).filter((name) => ENGINE_DIR.test(name))
+if (engineDirs.length !== 1) {
+    throw new Error(`期望恰好一个 9.x.x.x-<hash> 引擎目录，实际找到 ${engineDirs.length} 个`)
+}
+const ENGINE_VENDOR = `/${engineDirs[0]}/vendor`
+
 // 仅开发模式生效的中间件：把仓库根目录的引擎产物 / 协议契约 / 静态资源
 // 挂到 dev server（构建不经过这里，dist 由 copy-static.mjs 组装）
 function mountRepoStatic(): Plugin {
-    const engineDirs = readdirSync(repoRoot).filter((name) => ENGINE_DIR.test(name))
+    const mounts = readdirSync(repoRoot).filter((name) => ENGINE_DIR.test(name))
     const prefixes = new Set([
         '/onlyoffice.html',
         '/assets',
         '/blank',
-        ...engineDirs.map((dir) => '/' + dir),
+        ...mounts.map((dir) => '/' + dir),
     ])
     const serve = sirv(repoRoot, { dev: true })
     return {
@@ -41,6 +49,9 @@ function mountRepoStatic(): Plugin {
 export default defineConfig({
     appType: 'spa',
     plugins: [vue(), mountRepoStatic()],
+    define: {
+        __ENGINE_VENDOR__: JSON.stringify(ENGINE_VENDOR),
+    },
     build: {
         outDir: 'dist',
         // 带 hash 的应用产物输出到 /app/，与引擎静态文件 /assets/ 分离：

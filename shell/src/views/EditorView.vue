@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 编辑器页：全屏 iframe 内嵌 onlyoffice.html，通过 postMessage 协议交互
+// 编辑器页：挂载点直连 DocsAPI（编辑器 iframe 由 DocsAPI 自建注入）
 import { useEventListener } from '@vueuse/core'
 import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -14,7 +14,7 @@ const editor = useEditorStore()
 const recent = useRecentStore()
 const toast = useToastStore()
 
-const frameEl = useTemplateRef<HTMLIFrameElement>('frame')
+const mountEl = useTemplateRef<HTMLDivElement>('mount')
 
 onMounted(async () => {
     // 刷新 / 深链进入时从 IndexedDB 恢复会话
@@ -27,12 +27,12 @@ onMounted(async () => {
     editor.open(record)
 })
 
-// iframe 渲染出来后把引用交给会话（bridge 依赖它 postMessage）
-watch(frameEl, (el) => {
-    if (el) editor.attachFrame(el)
+// 挂载点渲染后交给会话创建编辑器（bridge 依赖它放置 DocsAPI）
+watch(mountEl, (el) => {
+    if (el) editor.attachMount(el)
 })
 
-// 接收 onlyoffice.html 的协议消息
+// 接收引擎 x2t_helper.js 的文件流消息（store 按 iframe 来源过滤）
 useEventListener(window, 'message', editor.handleMessage)
 
 // 有未保存修改时提示再离开（关闭/刷新标签页）
@@ -54,12 +54,8 @@ onBeforeUnmount(() => editor.teardown())
     <div class="editor-page">
         <EditorBar />
         <div class="editor-frame-box">
-            <iframe
-                v-if="editor.active"
-                ref="frame"
-                src="/onlyoffice.html"
-                title="OnlyOffice 编辑器"
-            ></iframe>
+            <!-- mount 是 Vue 稳定持有的外层；DocsAPI 会替换内层占位符为编辑器 iframe -->
+            <div v-if="editor.active" ref="mount" class="editor-mount"></div>
         </div>
     </div>
 </template>
@@ -79,11 +75,8 @@ onBeforeUnmount(() => editor.teardown())
     position: relative;
 }
 
-.editor-frame-box iframe {
+.editor-mount {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
 }
 </style>

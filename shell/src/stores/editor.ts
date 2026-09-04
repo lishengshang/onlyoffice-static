@@ -1,28 +1,34 @@
-// 编辑器会话：iframe + postMessage 协议（原 editor.js 的状态机部分）
-// 协议契约见仓库根 onlyoffice.html；改动需双向对齐
+// 编辑器会话：直连 DocsAPI（不再经过 onlyoffice.html 中转）
+// - DocsAPI 事件回调由 bridge 直达本 store
+// - 文件流（onlyoffice-file-stream）由引擎 x2t_helper.js 直接 postMessage 到本窗口
+// - 引擎文件流不带 requestId：保存请求用单槽 pending 匹配，未匹配的流视为编辑器自动保存
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { buildOnlyofficeConfig } from '../config/office-config'
 import router from '../router'
-import { EditorBridge } from '../services/bridge'
-import { parseFrameMessage } from '../types/protocol'
+import { DirectEditorBridge } from '../services/bridge'
+import { parseFileStream } from '../types/protocol'
 import type { FileRecord } from '../types/record'
 import { mimeOf, triggerDownload } from '../utils'
 import { useRecentStore } from './recent'
 import { useToastStore } from './toast'
 
 interface PendingSave {
+    requestId: string
     resolve: (blob: Blob) => void
     reject: (err: Error) => void
 }
 
 interface Session {
     record: FileRecord
+    bridge: DirectEditorBridge | null
     frame: HTMLIFrameElement | null
-    bridge: EditorBridge | null
     blobUrl: string
     saveSeq: number
-    pending: Map<string, PendingSave>
+    /** 单槽：同一时刻至多一个进行中的保存请求 */
+    pending: PendingSave | null
+    pendingOpenBuffer: ArrayBuffer | null
+    documentReady: boolean
 }
 
 export const useEditorStore = defineStore('editor', () => {
@@ -35,41 +41,95 @@ export const useEditorStore = defineStore('editor', () => {
     const modified = ref(false)
     const saving = ref(false)
 
-    // 非响应式会话（含 iframe / Blob 等原生对象，不能进响应式系统）
+    // 非响应式会话（含 iframe / Blob / DocsAPI 实例等原生对象，不能进响应式系统）
     let session: Session | null = null
 
     function open(record: FileRecord): void {
         teardown()
         session = {
             record,
-            frame: null,
             bridge: null,
+            frame: null,
             blobUrl: record.blob ? URL.createObjectURL(record.blob) : '',
             saveSeq: 0,
-            pending: new Map(),
+            pending: null,
+            pendingOpenBuffer: null,
+            documentReady: false,
         }
         title.value = record.name
         modified.value = false
         active.value = true
     }
 
-    // EditorView 渲染出 iframe 后回填引用
-    function attachFrame(frame: HTMLIFrameElement): void {
-        if (!session) return
-        session.frame = frame
-        session.bridge = new EditorBridge(frame)
+    // EditorView 渲染出挂载点后创建编辑器（替代旧的 iframe + attachFrame 流程）
+    function attachMount(mount: HTMLElement): void {
+        const s = session
+        if (!s) return
+        createEditorSession(s, mount).catch(reportOpenError)
     }
 
-    async function pushConfig(): Promise<void> {
-        const s = session
-        if (!s?.bridge) return
+    async function createEditorSession(s: Session, mount: HTMLElement): Promise<void> {
         const docConfig = buildOnlyofficeConfig({ record: s.record, blobUrl: s.blobUrl })
-        let openBuffer: ArrayBuffer | null = null
         if (docConfig.localOpenFromBinary) {
             if (!s.record.blob) throw new Error('本地文档缺少文件内容')
-            openBuffer = await s.record.blob.arrayBuffer()
+            s.pendingOpenBuffer = await s.record.blob.arrayBuffer()
         }
-        s.bridge.sendConfig(docConfig, openBuffer ?? undefined)
+
+        const bridge = new DirectEditorBridge()
+        s.bridge = bridge
+        await bridge.create(mount, docConfig, {
+            onFrameAttached: (frame) => {
+                if (session === s) s.frame = frame
+            },
+            onAppReady: () => {
+                if (session !== s) return
+                // 本地二进制文档（pdf）在应用就绪后注入字节
+                if (s.pendingOpenBuffer) {
+                    const buffer = s.pendingOpenBuffer
+                    s.pendingOpenBuffer = null
+                    bridge.openDocument(buffer)
+                }
+            },
+            onDocumentReady: () => {
+                if (session === s) s.documentReady = true
+            },
+            onError: (message) => {
+                if (session !== s) return
+                const pending = s.pending
+                s.pending = null
+                if (pending) pending.reject(new Error(message))
+                else reportOpenError(new Error(message))
+            },
+            onRequestClose: () => close(), // 编辑器自带的关闭按钮
+            onStateChange: (modifiedNow) => {
+                if (session === s) modified.value = modifiedNow
+            },
+            onRename: (newTitle) => {
+                if (session !== s || !newTitle) return
+                s.record.name = /\.[^.]+$/.test(newTitle)
+                    ? newTitle
+                    : `${newTitle}.${s.record.fileType}`
+                title.value = s.record.name
+                recent.saveRecord(s.record)
+            },
+            onSaveAsSource: (url, fileType) => {
+                void handleSaveAsSource(s, url, fileType)
+            },
+        })
+    }
+
+    // 用户在编辑器里"保存副本"：拉取引擎给的临时文件地址并下载副本
+    async function handleSaveAsSource(s: Session, url: string, fileType: string): Promise<void> {
+        try {
+            const response = await fetch(url)
+            if (!response.ok) throw new Error(`下载失败 HTTP ${response.status}`)
+            const buffer = await response.arrayBuffer()
+            const ext = fileType || s.record.fileType
+            const base = s.record.name.replace(/\.[^.]+$/, '')
+            triggerDownload(new Blob([buffer], { type: mimeOf(ext) }), `${base}-副本.${ext}`)
+        } catch (e) {
+            toast.show('另存为失败：' + (e as Error).message)
+        }
     }
 
     function reportOpenError(error: unknown): void {
@@ -80,15 +140,12 @@ export const useEditorStore = defineStore('editor', () => {
     // 触发保存，取回编辑后的文件流（ArrayBuffer -> Blob）
     function requestSave(): Promise<Blob> {
         const s = session
-        const bridge = s?.bridge
-        if (!s || !bridge) return Promise.reject(new Error('编辑器未打开'))
+        if (!s || !s.bridge) return Promise.reject(new Error('编辑器未打开'))
+        if (!s.documentReady) return Promise.reject(new Error('编辑器尚未就绪'))
         const requestId = 'save-' + ++s.saveSeq
         return new Promise<Blob>((resolve, reject) => {
-            const timer = setTimeout(() => {
-                s.pending.delete(requestId)
-                reject(new Error('保存超时'))
-            }, 30000)
-            s.pending.set(requestId, {
+            const pending: PendingSave = {
+                requestId,
                 resolve: (blob) => {
                     clearTimeout(timer)
                     resolve(blob)
@@ -97,8 +154,18 @@ export const useEditorStore = defineStore('editor', () => {
                     clearTimeout(timer)
                     reject(err)
                 },
-            })
-            bridge.requestSave(requestId, s.record.fileType)
+            }
+            const timer = setTimeout(() => {
+                if (s.pending === pending) s.pending = null
+                reject(new Error('保存超时'))
+            }, 30000)
+            s.pending = pending
+            try {
+                s.bridge!.requestSave(s.record.fileType)
+            } catch (e) {
+                if (s.pending === pending) s.pending = null
+                reject(e as Error)
+            }
         })
     }
 
@@ -153,64 +220,30 @@ export const useEditorStore = defineStore('editor', () => {
     function teardown(): void {
         const s = session
         if (!s) return
-        s.pending.forEach((p) => p.reject(new Error('编辑器已关闭')))
+        s.pending?.reject(new Error('编辑器已关闭'))
+        s.bridge?.destroy()
         if (s.blobUrl) URL.revokeObjectURL(s.blobUrl)
         session = null
         active.value = false
         modified.value = false
     }
 
-    // 接收 onlyoffice.html 的协议消息（由 EditorView 挂到 window 上）
+    // 接收引擎 x2t_helper.js 的文件流（由 EditorView 挂到 window 上）
     async function handleMessage(event: MessageEvent): Promise<void> {
         const s = session
-        const msg = parseFrameMessage(event.data)
-        if (!msg || !s || !s.frame || event.source !== s.frame.contentWindow) return
+        if (!s || !s.frame || event.source !== s.frame.contentWindow) return
+        const msg = parseFileStream(event.data)
+        if (!msg) return
 
-        switch (msg.type) {
-            case 'onlyoffice-ready': // iframe 就绪 -> 注入文档配置
-                pushConfig().catch(reportOpenError)
-                break
-            case 'onlyoffice-open-error':
-                toast.show('打开失败：' + (msg.error || '未知错误'))
-                break
-            case 'onlyoffice-saved': {
-                // 保存结果（带 requestId）或自动保存流
-                const p = msg.requestId ? s.pending.get(msg.requestId) : undefined
-                if (p) {
-                    if (msg.requestId) s.pending.delete(msg.requestId)
-                    if (msg.ok && msg.buffer) p.resolve(new Blob([msg.buffer]))
-                    else p.reject(new Error(msg.error || '保存失败'))
-                } else if (msg.ok && msg.buffer) {
-                    await persistBlob(new Blob([msg.buffer]))
-                    toast.show('已自动保存')
-                }
-                break
-            }
-            case 'onlyoffice-saveas': // 用户在编辑器里"保存副本"
-                if (msg.ok && msg.buffer) {
-                    const ext = msg.fileType || s.record.fileType
-                    const base = s.record.name.replace(/\.[^.]+$/, '')
-                    triggerDownload(
-                        new Blob([msg.buffer], { type: mimeOf(ext) }),
-                        `${base}-副本.${ext}`,
-                    )
-                }
-                break
-            case 'onlyoffice-rename': // 用户在编辑器里重命名
-                if (msg.title) {
-                    s.record.name = /\.[^.]+$/.test(msg.title)
-                        ? msg.title
-                        : `${msg.title}.${s.record.fileType}`
-                    title.value = s.record.name
-                    recent.saveRecord(s.record)
-                }
-                break
-            case 'onlyoffice-state-change':
-                modified.value = !!msg.modified
-                break
-            case 'onlyoffice-request-close': // 编辑器自带的关闭按钮
-                close()
-                break
+        // 单槽匹配：有进行中的保存请求则归它，否则是编辑器自动保存
+        const pending = s.pending
+        s.pending = null
+        const blob = new Blob([msg.buffer])
+        if (pending) {
+            pending.resolve(blob)
+        } else {
+            await persistBlob(blob)
+            toast.show('已自动保存')
         }
     }
 
@@ -220,7 +253,7 @@ export const useEditorStore = defineStore('editor', () => {
         modified,
         saving,
         open,
-        attachFrame,
+        attachMount,
         saveCurrent,
         downloadCurrent,
         close,

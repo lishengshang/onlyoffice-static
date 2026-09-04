@@ -8,7 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BASE, check, launchBrowser, summarize } from './helpers.mjs'
 
-const artifacts = path.dirname(fileURLToPath(import.meta.url))
+const artifacts = path.join(path.dirname(fileURLToPath(import.meta.url)), 'artifacts')
 const results_badRequests = []
 
 const browser = await launchBrowser()

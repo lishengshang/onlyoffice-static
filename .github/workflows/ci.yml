@@ -26,5 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      # 纯函数单测（vitest，node 环境，无需浏览器）
+      - run: npm run test
       # 完整构建含 copy-static 引擎拷贝（约 660MB），即端到端产物验证
       - run: npm run build

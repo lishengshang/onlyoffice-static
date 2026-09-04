@@ -12,8 +12,8 @@
 
 ## 与上游的关系
 
-脱钩自建：本仓库不保留 fork 关系，不含上游 git 历史（来自 tarball 快照）。
-上游停更不影响本仓库运行——产物是可用快照。
+**本仓库定义为 [fernfei/OnlyofficePersonal](https://github.com/fernfei/OnlyofficePersonal) 的 fork**：以 tarball 快照方式建立，不含上游 git 历史，因此不是 GitHub 意义上的 fork 按钮 derived 仓库，但来源、致谢与升级路径均按 fork 对待（见根 README 致谢一节）。
+上游停更不影响本仓库运行——产物是可用快照；本 fork 的全部改动见根 README「与上游的差异」。
 
 ## 以后升级引擎的三条路径
 

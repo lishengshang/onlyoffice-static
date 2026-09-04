@@ -9,7 +9,7 @@ import router from '../router'
 import { DirectEditorBridge } from '../services/bridge'
 import { parseFileStream } from '../types/protocol'
 import type { FileRecord } from '../types/record'
-import { mimeOf, triggerDownload } from '../utils'
+import { hasKnownExt, mimeOf, triggerDownload } from '../utils'
 import { useRecentStore } from './recent'
 import { useToastStore } from './toast'
 
@@ -103,7 +103,9 @@ export const useEditorStore = defineStore('editor', () => {
             },
             onRename: (newTitle) => {
                 if (session !== s || !newTitle) return
-                s.record.name = /\.[^.]+$/.test(newTitle)
+                // 标题以已知文档扩展名结尾才视为完整文件名，否则补当前类型后缀
+                // （「报告 v1.2」的点不是扩展名，需补 .docx）
+                s.record.name = hasKnownExt(newTitle)
                     ? newTitle
                     : `${newTitle}.${s.record.fileType}`
                 title.value = s.record.name

@@ -36,8 +36,11 @@ watch(mountEl, (el) => {
 useEventListener(window, 'message', editor.handleMessage)
 
 // 有未保存修改时提示再离开（关闭/刷新标签页）
+// 旧版 Chromium/Safari 依赖 returnValue，新版标准只需 preventDefault
 useEventListener(window, 'beforeunload', (e) => {
-    if (editor.modified) e.preventDefault()
+    if (!editor.modified) return
+    e.preventDefault()
+    e.returnValue = true
 })
 
 // 离开 /edit 前确认未保存修改（关闭按钮 / 返回 / 编辑器自带关闭共用此守卫）

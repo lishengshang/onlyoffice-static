@@ -130,9 +130,14 @@ export class DirectEditorBridge {
     }
 
     // DocsAPI 会在挂载点内自建 iframe；MutationObserver 在占位符被替换的瞬间回填给 store
-    // （消息来源过滤依赖它；轮询方案有 5 秒静默失败窗口，DOM 事件无此问题）
+    // （消息来源过滤依赖它）。若 DocEditor 构造时已同步完成注入，observer 注册前先检一次兜底
     private watchMountIframe(mount: HTMLElement, callbacks: DirectEditorCallbacks): void {
         this.frameObserver?.disconnect()
+        const existing = mount.querySelector('iframe')
+        if (existing instanceof HTMLIFrameElement) {
+            callbacks.onFrameAttached(existing)
+            return
+        }
         const observer = new MutationObserver(() => {
             const frame = mount.querySelector('iframe')
             if (frame instanceof HTMLIFrameElement) {
